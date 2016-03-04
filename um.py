@@ -103,3 +103,17 @@ def pair_setup():
     pair_alias = execute("dscl . -append /Users/{} RecordName Pair pair".format(user), capture=True, sudo=True)
     if pair_alias:
         click.echo('Added pair alias for current user')
+
+
+@local.command()
+@click.option('--adapter', default="Wi-Fi", help="Adapter name")
+@click.argument('networks', nargs=-1)
+def dns(adapter, networks):
+    """Set dns entries for an adapter"""
+
+    if networks:
+        networks = " ".join(networks)
+
+    dns_output = execute('networksetup -setdnsservers {} {}'.format(adapter, networks), capture=True, sudo=True)
+    if dns_output:
+        click.echo('Added dns servers {} to {}'.format(networks, adapter))
