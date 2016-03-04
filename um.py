@@ -124,9 +124,17 @@ def dns(adapter, networks):
 @click.option('--value', help="Value of environmental variable")
 def env(key, value):
     """Sets environmental variables"""
-    lookup_set = {'test': 'https://um.so'}
+    lookup_set = get_lookup_set(key)
     if not value:
         value = lookup_set[key]
 
     os.environ[key.upper()] = value
     click.echo('Set {} to {} in your environment'.format(key.upper(), value))
+
+
+# Utility functions
+def get_lookup_set(value):
+    # replace with call to something to get set
+    values = {'test': 'https://um.so'}
+
+    return values
