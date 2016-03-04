@@ -1,3 +1,4 @@
+import os
 import um as um
 from click.testing import CliRunner
 
@@ -44,3 +45,17 @@ def test_github_pair_remove_user():
         assert result.exit_code == 0
         assert not result.exception
         assert result.output == 'Removed khornberg from your authorized_keys\n'
+
+
+def test_local_envvar_from_a_preset_list():
+    runner = CliRunner()
+    result = runner.invoke(um.cli, ['local', 'env', 'test'])
+    assert os.environ.get('TEST') == 'https://um.so'
+    assert result.output == 'Set TEST to https://um.so in your environment\n'
+
+
+def test_local_envvar_from_a_provided_value():
+    runner = CliRunner()
+    result = runner.invoke(um.cli, ['local', 'env', 'test', '--value', 'https://khornberg.github.com'])
+    assert os.environ.get('TEST') == 'https://khornberg.github.com'
+    assert result.output == 'Set TEST to https://khornberg.github.com in your environment\n'

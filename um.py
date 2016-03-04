@@ -117,3 +117,16 @@ def dns(adapter, networks):
     dns_output = execute('networksetup -setdnsservers {} {}'.format(adapter, networks), capture=True, sudo=True)
     if dns_output:
         click.echo('Added dns servers {} to {}'.format(networks, adapter))
+
+
+@local.command()
+@click.argument('key', nargs=1)
+@click.option('--value', help="Value of environmental variable")
+def env(key, value):
+    """Sets environmental variables"""
+    lookup_set = {'test': 'https://um.so'}
+    if not value:
+        value = lookup_set[key]
+
+    os.environ[key.upper()] = value
+    click.echo('Set {} to {} in your environment'.format(key.upper(), value))
