@@ -10,6 +10,12 @@ um, from umbrella insurance...
 
 *You will need to be able to install from the public PyPi*
 
+## Autocompletion
+
+`autoload bashcompinit && bashcompinit`
+
+`eval "$(_UM_COMPLETE=source um)"`
+
 ## Usage
 
 `um` Will guide you
