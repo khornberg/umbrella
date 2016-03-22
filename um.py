@@ -1,27 +1,36 @@
 # coding: utf-8
+import sys
 import os
 import re
+import json
 import click
+import requests
 from github import Github
 from executor import execute
+from jenkinsapi.jenkins import Jenkins
+import credentials
 
+BUILD_AUTOMATION = '{}/projects/build_automation'.format(os.environ.get('HOME'))
+AWS_MANAGER = '{}/projects/aws_manager'.format(os.environ.get('HOME'))
+sys.path.append(BUILD_AUTOMATION)
+sys.path.append(AWS_MANAGER)
+from config import users, projects
+
+JENKINS = credentials.jenkins()
+
+AWS_DEFINITIONS = None
+with open('{}/aws_manager/definitions.json'.format(AWS_MANAGER), 'r') as f:
+    AWS_DEFINITIONS = json.load(f)
 
 SSH_LIMITATIONS = 'no-agent-forwarding,no-port-forwarding,no-X11-forwarding'
-SSH_COMMAND = 'command="tmux attach -t pair-session"'
+SSH_COMMAND = 'command="tmux new-session -t host-session -s pair-session"'
+AUTHORIZED_KEYS = '{}/.ssh/authorized_keys'.format(os.environ.get('HOME'))
 
 
 @click.group()
 def cli():
     """Utility application that covers many things; thus umbrella; and um seemed um, short"""
     pass
-
-
-@cli.command()
-def colors():
-    """Demonstrates ANSI color support."""
-    for color in 'red', 'green', 'blue', 'white', 'black', 'yellow':
-        click.echo(click.style('{} am colored {}'.format('you', color), fg=color))
-        click.echo(click.style('{} am background colored {}'.format('kyle', color), bg=color))
 
 
 @cli.group()
@@ -38,32 +47,38 @@ def pair():
 
 @pair.command()
 @click.option('--replace/--no-replace', default=False, help='Replace user(s) key')
-@click.option('--keys', required=True, type=click.Path(exists=True), help='Path and file name of your authorized_keys')
+@click.option('--keys', required=True, type=click.Path(exists=True), default=AUTHORIZED_KEYS, help='Path and file name of your authorized_keys')
+@click.option('--default-users/--no-default-users', help='Authorize all users in build_automation.users')
 @click.argument('usernames', nargs=-1)
-def add(replace, keys, usernames):
+@click.pass_context
+def add(ctx, replace, keys, default_users, usernames):
     """Add a github user to your authorized_keys"""
     if replace:
-        remove(usernames)
+        ctx.invoke(remove, usernames=usernames)
 
-    for username in usernames:
-        github_keys = get_keys(username)
-        with open(keys, 'r+') as f:
+    if default_users:
+        usernames = users.USERS
+
+    with open(keys, 'a') as f:
+        for username in usernames:
+            github_keys = get_keys(username)
             for key in github_keys:
                 new_key = '{},{} {} #{}\n'.format(SSH_LIMITATIONS, SSH_COMMAND, key.key, username)
                 f.write(new_key)
+                # print(f.read())
+            click.echo('Added {} to your authorized_keys'.format(username))
         f.closed
-        click.echo('Added {} to your authorized_keys'.format(username))
 
 
 @pair.command()
-@click.option('--keys', required=True, type=click.Path(exists=True), help='Path and file name of your authorized_keys')
+@click.option('--keys', required=True, type=click.Path(exists=True), default=AUTHORIZED_KEYS, help='Path and file name of your authorized_keys')
 @click.argument('usernames', nargs=-1)
 def remove(keys, usernames):
     """Remove a github user from your authorized_keys"""
     for username in usernames:
         with open(keys, 'r+') as f:
             key_file = f.read()
-            pattern = '.* #{}\n'.format(username)
+            pattern = '^.* #{}\n'.format(username)
             match = re.sub(pattern, '', key_file, re.I)
             f.seek(0)
             f.write(match)
@@ -125,16 +140,77 @@ def dns(adapter, networks):
 def env(key, value):
     """Sets environmental variables"""
     lookup_set = get_lookup_set(key)
+    keys = key.split('.')
     if not value:
-        value = lookup_set[key]
+        values = lookup_set
+        for key in keys:
+            values = values[key]
+        value = values
 
-    os.environ[key.upper()] = value
-    click.echo('Set {} to {} in your environment'.format(key.upper(), value))
+    last_key = keys.pop()
+    click.echo('export {}={}'.format(last_key.upper(), value))
+
+
+# @local.command()
+# @click.option('--hosts', default="/etc/hosts", help="Hosts file")
+# @click.argument('key', nargs=1)
+# @click.argument('value', nargs=1)
+# def add(hosts, key, value):
+
+
+@cli.group()
+def jenkins():
+    """Commands that interact with Jenkins"""
+    pass
+
+
+@jenkins.command()
+@click.option('--watch-build/--no-watch-build', help='Watch the build')
+@click.option('--number', help='Build number to rebuild')
+@click.argument('project', nargs=1)
+@click.pass_context
+def rebuild(ctx, watch_build, number, project):
+    """Rebuild the last build"""
+    J = connect_to_jenkins()
+    build = J['{}'.format(project)].get_last_build()
+    lastBuildNumber = number if number else build.get_number()
+    if not build.is_good():
+        retry = "{}/job/{}/{}/retry".format(JENKINS.url, project, lastBuildNumber)
+        response = requests.get(retry, auth=requests.auth.HTTPBasicAuth(JENKINS.username, JENKINS.password))
+        if response.status_code == requests.codes.ok:
+            click.echo('{} build restarted'.format(project))
+    else:
+        click.echo('Build {} was successful'.format(lastBuildNumber))
+
+    if watch_build:
+        ctx.invoke(watch, project=project)
+
+
+@jenkins.command()
+@click.argument('project', nargs=1)
+@click.option('--number', help='Build number to rebuild')
+def watch(project, number):
+    """Watch console output from a build"""
+    J = connect_to_jenkins()
+    job = J['{}'.format(project)]
+    build_number = int(number) if number else job.get_last_buildnumber()
+    build = job.get_build(build_number)
+    lastLength = 0
+    while build.is_running():
+        output = build.get_console()
+        outputLength = len(output)
+        click.echo(output[lastLength:], nl=False)
+        lastLength = outputLength
+    if not build.is_running():
+        click.echo(build.get_console()[lastLength:], nl=False)
+        click.echo('End of output for build {}'.format(build_number))
 
 
 # Utility functions
 def get_lookup_set(value):
     # replace with call to something to get set
-    values = {'test': 'https://um.so'}
+    return AWS_DEFINITIONS
 
-    return values
+
+def connect_to_jenkins():
+    return Jenkins(JENKINS.url, username=JENKINS.username, password=JENKINS.password)
