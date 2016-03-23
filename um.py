@@ -8,7 +8,7 @@ import requests
 from github import Github
 from executor import execute
 from jenkinsapi.jenkins import Jenkins
-import credentials
+import configuration
 
 BUILD_AUTOMATION = '{}/projects/build_automation'.format(os.environ.get('HOME'))
 AWS_MANAGER = '{}/projects/aws_manager'.format(os.environ.get('HOME'))
@@ -16,7 +16,7 @@ sys.path.append(BUILD_AUTOMATION)
 sys.path.append(AWS_MANAGER)
 from config import users, projects
 
-JENKINS = credentials.jenkins()
+JENKINS = configuration.jenkins()
 
 AWS_DEFINITIONS = None
 with open('{}/aws_manager/definitions.json'.format(AWS_MANAGER), 'r') as f:
