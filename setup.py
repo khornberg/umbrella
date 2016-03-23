@@ -8,7 +8,8 @@ setup(
     install_requires=[
         'click',
         'PyGithub',
-        'excutor'
+        'executor',
+        'jenkinsapi',
     ],
     entry_points='''
         [console_scripts]
