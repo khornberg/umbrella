@@ -44,7 +44,7 @@ def github():
 @github.command()
 @click.option('--years', default=1, help="Clone repos newer than years specified")
 @click.option('--public/--no-public', default=False, help="Include public repos")
-@click.option('--languages', default=['Python', 'Javascript'], help="Lanaguages to include")
+@click.option('--languages', default=['Python', 'JavaScript', 'CSS', 'Perl', 'Ruby', 'HTML', 'None'], help="Lanaguages to include")
 @click.argument('username', nargs=1)
 def clone(years, public, languages, username):
     """Clones most repositories for a user in the current directory"""
