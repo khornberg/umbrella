@@ -45,8 +45,9 @@ def github():
 @click.option('--years', default=1, help="Clone repos newer than years specified")
 @click.option('--public/--no-public', default=False, help="Include public repos")
 @click.option('--languages', default=['Python', 'JavaScript', 'CSS', 'Perl', 'Ruby', 'HTML', 'None'], help="Lanaguages to include")
+@click.option('--exclude', default='', help='Name or partial of repo to exclude')
 @click.argument('username', nargs=1)
-def clone(years, public, languages, username):
+def clone(years, public, languages, exclude, username):
     """Clones most repositories for a user in the current directory"""
     try:
         """
@@ -54,7 +55,7 @@ def clone(years, public, languages, username):
         """
         member_repos = Github(GITHUB.token).get_user().get_repos('member')
         for repo in member_repos:
-            if username in repo.full_name and repo.language in languages:
+            if username in repo.full_name and repo.language in languages and exclude not in repo.name:
                 click.echo('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]))
                 try:
                     c = execute('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]), capture=True)
