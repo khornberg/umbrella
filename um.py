@@ -78,6 +78,8 @@ def clone(years, public, languages, exclude, username):
                     except Exception as e:
                         click.echo(e)
 
+    except TypeError:
+        return
     except Exception as e:
         click.echo(e)
         raise e
