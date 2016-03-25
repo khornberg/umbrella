@@ -58,7 +58,7 @@ def clone(years, public, languages, exclude, username):
             if username in repo.full_name and repo.language in languages and exclude not in repo.name:
                 click.echo('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]))
                 try:
-                    c = execute('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]), capture=True)
+                    c = execute('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]), capture=True, check=False)
                     click.echo(c)
                 except Exception as e:
                     click.echo(e)
@@ -73,7 +73,7 @@ def clone(years, public, languages, exclude, username):
                 if repo.updated_at > years_old and repo.language in languages:
                     click.echo('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]))
                     try:
-                        c = execute('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]), capture=True)
+                        c = execute('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]), capture=True, check=False)
                         click.echo(c)
                     except Exception as e:
                         click.echo(e)
