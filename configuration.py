@@ -24,3 +24,11 @@ def jenkins():
         jenkins = configuration["jenkins"]
         JenkinsCredentials = namedtuple('JenkinsCredentials', 'username password url')
         return JenkinsCredentials(jenkins['username'], jenkins['password'], jenkins['url'])
+
+
+def github():
+    with open('{}/.um'.format(os.environ.get('HOME')), 'r') as f:
+        configuration = json.load(f)
+        github = configuration["github"]
+        GithubCredentials = namedtuple('GithubCredentials', 'name token')
+        return GithubCredentials(github["name"], github["token"])
