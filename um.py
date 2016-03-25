@@ -42,7 +42,7 @@ def github():
 
 
 @github.command()
-@click.option('--years', default=1, help="Clone repos new than years specified")
+@click.option('--years', default=1, help="Clone repos newer than years specified")
 @click.option('--public/--no-public', default=False, help="Include public repos")
 @click.option('--languages', default=['Python', 'Javascript'], help="Lanaguages to include")
 @click.argument('username', nargs=1)
