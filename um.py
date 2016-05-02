@@ -25,7 +25,7 @@ with open('{}/aws_manager/definitions.json'.format(AWS_MANAGER), 'r') as f:
     AWS_DEFINITIONS = json.load(f)
 
 SSH_LIMITATIONS = 'no-agent-forwarding,no-port-forwarding,no-X11-forwarding'
-SSH_COMMAND = 'command="tmux new-session -t host-session -s pair-session"'
+SSH_COMMAND = 'command="bash $(tmux attach -t pair-session || tmux new-session -t host-session -s pair-session)"'
 AUTHORIZED_KEYS = '{}/.ssh/authorized_keys'.format(os.environ.get('HOME'))
 
 
