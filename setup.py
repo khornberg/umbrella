@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='umbrella',
-    version='0.3.0',
+    version='0.3.1',
     py_modules=['um'],
     include_package_data=True,
     install_requires=[
