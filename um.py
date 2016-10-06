@@ -5,19 +5,17 @@ import re
 import json
 import datetime
 import click
-import requests
 from github import Github
 from executor import execute
-from jenkinsapi.jenkins import Jenkins
 import configuration
 
 BUILD_AUTOMATION = '{}/projects/build_automation'.format(os.environ.get('HOME'))
 AWS_MANAGER = '{}/projects/aws_manager'.format(os.environ.get('HOME'))
 sys.path.append(BUILD_AUTOMATION)
 sys.path.append(AWS_MANAGER)
+
 from config import users, projects
 
-JENKINS = configuration.jenkins()
 GITHUB = configuration.github()
 
 AWS_DEFINITIONS = None
@@ -44,7 +42,11 @@ def github():
 @github.command()
 @click.option('--years', default=1, help="Clone repos newer than years specified")
 @click.option('--public/--no-public', default=False, help="Include public repos")
-@click.option('--languages', default=['Python', 'JavaScript', 'CSS', 'Perl', 'Ruby', 'HTML', 'None'], help="Lanaguages to include")
+@click.option(
+    '--languages',
+    default=['Python', 'JavaScript', 'CSS', 'Perl', 'Ruby', 'HTML', 'None'],
+    help="Lanaguages to include"
+)
 @click.option('--exclude', default='', help='Name or partial of repo to exclude')
 @click.argument('username', nargs=1)
 def clone(years, public, languages, exclude, username):
@@ -58,22 +60,29 @@ def clone(years, public, languages, exclude, username):
             if username in repo.full_name and repo.language in languages and exclude not in repo.name:
                 click.echo('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]))
                 try:
-                    c = execute('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]), capture=True, check=False)
+                    c = execute(
+                        'git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]),
+                        capture=True,
+                        check=False
+                    )
                     click.echo(c)
                 except Exception as e:
                     click.echo(e)
-
         """
         Public repos for <username>
         """
         if public:
             public_repos = Github(GITHUB.token).get_user(username).get_repos()
             for repo in public_repos:
-                years_old = datetime.datetime.now() - datetime.timedelta(days=years*365)
+                years_old = datetime.datetime.now() - datetime.timedelta(days=years * 365)
                 if repo.updated_at > years_old and repo.language in languages:
                     click.echo('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]))
                     try:
-                        c = execute('git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]), capture=True, check=False)
+                        c = execute(
+                            'git clone https://{}:{}@{}'.format(GITHUB.name, GITHUB.token, repo.clone_url[8:]),
+                            capture=True,
+                            check=False
+                        )
                         click.echo(c)
                     except Exception as e:
                         click.echo(e)
@@ -93,7 +102,13 @@ def pair():
 
 @pair.command()
 @click.option('--replace/--no-replace', default=False, help='Replace user(s) key')
-@click.option('--keys', required=True, type=click.Path(exists=True), default=AUTHORIZED_KEYS, help='Path and file name of your authorized_keys')
+@click.option(
+    '--keys',
+    required=True,
+    type=click.Path(exists=True),
+    default=AUTHORIZED_KEYS,
+    help='Path and file name of your authorized_keys'
+)
 @click.option('--default-users/--no-default-users', help='Authorize all users in build_automation.users')
 @click.argument('usernames', nargs=-1)
 @click.pass_context
@@ -117,7 +132,13 @@ def add(ctx, replace, keys, default_users, usernames):
 
 
 @pair.command()
-@click.option('--keys', required=True, type=click.Path(exists=True), default=AUTHORIZED_KEYS, help='Path and file name of your authorized_keys')
+@click.option(
+    '--keys',
+    required=True,
+    type=click.Path(exists=True),
+    default=AUTHORIZED_KEYS,
+    help='Path and file name of your authorized_keys'
+)
 @click.argument('usernames', nargs=-1)
 def remove(keys, usernames):
     """Remove a github user from your authorized_keys"""
@@ -156,7 +177,13 @@ def pair_setup():
 
     2) Adds Pair and pair user aliases for the current user
     """
-    sshd_config = execute("sed -E -i.bak {} {}".format(r"'s/^#?(PasswordAuthentication|ChallengeResponseAuthentication).*$/\1 no/'", "/etc/sshd_config"), capture=True, sudo=True)
+    sshd_config = execute(
+        "sed -E -i.bak {} {}".format(
+            r"'s/^#?(PasswordAuthentication|ChallengeResponseAuthentication).*$/\1 no/'", "/etc/sshd_config"
+        ),
+        capture=True,
+        sudo=True
+    )
     if sshd_config:
         click.echo('Disabled clear text passwords in sshd')
 
@@ -196,7 +223,6 @@ def env(key, value):
     last_key = keys.pop()
     click.echo('export {}={}'.format(last_key.upper(), value))
 
-
 # @local.command()
 # @click.option('--hosts', default="/etc/hosts", help="Hosts file")
 # @click.argument('key', nargs=1)
@@ -204,59 +230,7 @@ def env(key, value):
 # def add(hosts, key, value):
 
 
-@cli.group()
-def jenkins():
-    """Commands that interact with Jenkins"""
-    pass
-
-
-@jenkins.command()
-@click.option('--watch-build/--no-watch-build', help='Watch the build')
-@click.option('--number', help='Build number to rebuild')
-@click.argument('project', nargs=1)
-@click.pass_context
-def rebuild(ctx, watch_build, number, project):
-    """Rebuild the last build"""
-    J = connect_to_jenkins()
-    build = J['{}'.format(project)].get_last_build()
-    lastBuildNumber = number if number else build.get_number()
-    if not build.is_good():
-        retry = "{}/job/{}/{}/retry".format(JENKINS.url, project, lastBuildNumber)
-        response = requests.get(retry, auth=requests.auth.HTTPBasicAuth(JENKINS.username, JENKINS.password))
-        if response.status_code == requests.codes.ok:
-            click.echo('{} build restarted'.format(project))
-    else:
-        click.echo('Build {} was successful'.format(lastBuildNumber))
-
-    if watch_build:
-        ctx.invoke(watch, project=project)
-
-
-@jenkins.command()
-@click.argument('project', nargs=1)
-@click.option('--number', help='Build number to rebuild')
-def watch(project, number):
-    """Watch console output from a build"""
-    J = connect_to_jenkins()
-    job = J['{}'.format(project)]
-    build_number = int(number) if number else job.get_last_buildnumber()
-    build = job.get_build(build_number)
-    lastLength = 0
-    while build.is_running():
-        output = build.get_console()
-        outputLength = len(output)
-        click.echo(output[lastLength:], nl=False)
-        lastLength = outputLength
-    if not build.is_running():
-        click.echo(build.get_console()[lastLength:], nl=False)
-        click.echo('End of output for build {}'.format(build_number))
-
-
 # Utility functions
 def get_lookup_set(value):
     # replace with call to something to get set
     return AWS_DEFINITIONS
-
-
-def connect_to_jenkins():
-    return Jenkins(JENKINS.url, username=JENKINS.username, password=JENKINS.password)
